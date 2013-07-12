@@ -81,7 +81,7 @@
 			<?php 
 				$terms = get_terms('casasync_category');
 				foreach ($terms as $term) {
-					echo "<option value='" . $term->slug . "' " . (in_array($term->slug, $categories) ? 'SELECTED' : '') . ">" . __($term->name, 'casasync') . ' (' . $term->count . ')' . "</option>";
+					echo "<option value='" . $term->slug . "' " . (in_array($term->slug, $categories) ? 'SELECTED' : '') . ">" . casasync_convert_categoryKeyToLabel($term->name) . ' (' . $term->count . ')' . "</option>";
 				}
 			 ?>
 			</select>
@@ -228,7 +228,7 @@
 						$cur_basis = array();
 					}
 					
-					$salestype .= "<label><input name='casasync_salestype' type='radio' group='salestype' " . (in_array($term->slug, $cur_basis) ? 'CHECKED' : '') . " value='" . $term->slug . "' /> " . $term->name . "</label>";
+					$salestype .= "<label><input name='casasync_salestype' type='radio' group='salestype' " . (in_array($term->slug, $cur_basis) ? 'CHECKED' : '') . " value='" . $term->slug . "' /> " . __(ucfirst($term->name),'casasync') . "</label>";
 				}
 				if ($i > 1) {
 					echo $salestype . '<hr class="soften" />';
@@ -249,7 +249,7 @@
 			<?php 
 				$terms = get_terms('casasync_category');
 				foreach ($terms as $term) {
-					echo "<option value='" . $term->slug . "' " . (in_array($term->slug, $categories) ? 'SELECTED' : '') . ">" . __($term->name, 'casasync') . ' (' . $term->count . ')' . "</option>";
+					echo "<option value='" . $term->slug . "' " . (in_array($term->slug, $categories) ? 'SELECTED' : '') . ">" . casasync_convert_categoryKeyToLabel($term->name) . ' (' . $term->count . ')' . "</option>";
 				}
 			 ?>
 			</select>

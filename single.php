@@ -374,7 +374,36 @@
 						. $salesperson_gender  
 					) { 
 						$show_salesperson = true;
-					}?>
+					}
+
+
+ 					$availability = get_post_meta( get_the_ID(), 'availability', $single = true );
+ 					$availability_label = get_post_meta( get_the_ID(), 'availability_label', $single = true );
+ 					if (!$availability_label) {
+	 					switch ($availability) {
+							case 'available':
+								$availability_label = 'Verfügbar';
+								break;
+							case 'reserved':
+								$availability_label = 'Reserved';
+								break;
+							case 'planned':
+								$availability_label = 'In Planung';
+								break;
+							case 'under-construction':
+								$availability_label = 'Im Bau';
+								break;
+							case 'reference':
+								$availability_label = 'Referenz';
+								break;
+							
+							default:
+								$availability_label = false;
+								break;
+						}
+ 					}
+	 ?>
+
 
 
 
@@ -387,7 +416,7 @@
 
 <?php /******************* {classes}  *************/ ?>
 			<?php $classes = get_post_class(); ?>
-			<?php $the_classes = 'class="' . implode(' ', $classes) . '"'; ?>
+			<?php $the_classes = 'class="' . implode(' ', $classes) . ' ' . $the_basis . ' ' . $availability . '"'; ?>
 
 <?php /******************* {gallery}  *************/ ?>
 			<?php $the_gallery = false; ?>
@@ -540,13 +569,24 @@
 			                </div>
 		                </div>
 		                <?php if ($address): ?>
-		                	<?php $map_url = "https://maps.google.com/maps?f=q&amp;source=s_q&amp;hl=" . substr(get_locale(), 0, 2)  . "&amp;geocode=&amp;q=" . urlencode( str_replace('<br>', '+', $address )) . "&amp;aq=&amp;ie=UTF8&amp;hq=&amp;hnear=" . urlencode( str_replace('<br>', '+', $address )) . "&amp;t=m&amp;z=14&amp;output=embed" ?>
+		                	<?php $map_url = "https://maps.google.com/maps?f=q&amp;source=s_q&amp;hl=" . substr(get_locale(), 0, 2)  . "&amp;geocode=&amp;q=" . urlencode( str_replace('<br>', ', ', $address )) . "&amp;aq=&amp;ie=UTF8&amp;hq=&amp;hnear=" . urlencode( str_replace('<br>', ', ', $address )) . "&amp;t=m&amp;z=14&amp;output=embed" ?>
 		                	<div class="hidden-phone">
-		                		<iframe width="100%" height="350" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src="<?php echo $map_url ?>"></iframe><br /><small><a href="<?php echo $map_url ?>" class="casasync-fancybox" data-fancybox-type="iframe"><?php echo __('View lager version', 'casasync') ?></a></small>		                
+		                		<div class="casasync-map" style="display:none" data-address="<?php echo str_replace('<br>', ', ', $address) ?>">
+		                			<div id="map-canvas" style="width:100%; height:400px;" ></div>
+		                			<br /><small><a href="<?php echo $map_url ?>" class="casasync-fancybox" data-fancybox-type="iframe"><?php echo __('View lager version', 'casasync') ?></a></small>
+		                		</div>
 		                	</div>
 		                	<div class="visible-phone">
 		                		<a class="btn btn-success btn-block" href="<?php echo $map_url ?>"><i class="icon icon-map-marker"></i> Auf Google Maps anzeigen</a>
 		                	</div>
+		                	<?php //wp_localize_script( 'casasync_script', 'map_vars', array('address' => $address) ); ?>
+		                	<?php //$map_url = "https://maps.google.com/maps?f=q&amp;source=s_q&amp;hl=" . substr(get_locale(), 0, 2)  . "&amp;geocode=&amp;q=" . urlencode( str_replace('<br>', '+', $address )) . "&amp;aq=&amp;ie=UTF8&amp;hq=&amp;hnear=" . urlencode( str_replace('<br>', '+', $address )) . "&amp;t=m&amp;z=14&amp;output=embed" ?>
+		                	<!-- <div class="hidden-phone">
+		                		<iframe width="100%" height="350" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" src="<?php echo $map_url ?>"></iframe><br /><small><a href="<?php echo $map_url ?>" class="casasync-fancybox" data-fancybox-type="iframe"><?php echo __('View lager version', 'casasync') ?></a></small>		                
+		                	</div>
+		                	<div class="visible-phone">
+		                		<a class="btn btn-success btn-block" href="<?php echo $map_url ?>"><i class="icon icon-map-marker"></i> Auf Google Maps anzeigen</a>
+		                	</div> -->
 		                <?php endif ?>
 	            	</div>
 	            	<?php /*foreach ($content_parts as $i => $part): ?>
@@ -765,10 +805,13 @@
 				<?php $the_pagination = false; ?>
             	<?php ob_start();?>
 	            	<nav id="casasyncSinglePaginate" class="casasync-single-paginate btn-group row-fluid">
+						<!--
 						<?php //previous_post_link( '%link', '' . _x( '&larr;', 'Previous post link', 'hegglin' ) . '' ); ?>
 						<?php echo casasyncSingleNext('casasync-single-left-percent btn'); ?>
 						<a class="btn casasync-single-back casasync-single-left-percent" href="<?php echo get_post_type_archive_link( 'casasync_property' );  ?>"><?php echo __('Back to the list','casasync'); ?></a>
 						<?php echo casasyncSinglePrev('casasync-single-left-percent btn'); ?>
+						-->
+						<a class="btn btn-block" href="#" onclick="javascript:window.history.back(-1);return false;"><i class="icon icon-arrow-left"></i> <?php echo __('Back to the list','casasync'); ?></a>
 					</nav><!-- #nav-above -->
 				<?php $the_pagination = ob_get_contents();ob_end_clean(); ?>
 
@@ -825,7 +868,13 @@
 					  		</div>
 					<?php $the_seller = ob_get_contents(); ob_end_clean(); ?>
 				<?php endif ?>
-
+<?php /******************* {availabilitylabel}  *************/ ?>
+	<?php 
+		$the_availabilitylabel = false;
+		if ($availability_label):
+			$the_availabilitylabel = '<div class="availability-label availability-label-' . $availability . '">' . $availability_label . '</div>';
+	 	endif;
+	 ?>
 <?php /******************* {salesperson}  *************/ ?>
 				<?php $the_salesperson = false; ?>
 				<?php ob_start(); ?>
@@ -961,6 +1010,14 @@
 						$template = str_replace("{salesperson}", '', $template);
 					}
 
+					$template = casasync_template_set_if_not($template, 'reference', ($the_basis == 'reference' ? true : false));
+					$template = casasync_template_set_if($template, 'reference', ($the_basis == 'reference' ? false : true));
+
+					$template = casasync_template_set_if_not($template, 'planned', ($the_basis == 'planned' ? true : false));
+					$template = casasync_template_set_if($template, 'planned', ($the_basis == 'planned' ? false : true));
+
+					$template = casasync_template_set_if($template, 'availabilitylabel', $the_availabilitylabel);
+				$template = casasync_template_set_if_not($template, 'availabilitylabel', $the_availabilitylabel);
 					
 					echo $template
 

@@ -29,6 +29,7 @@
 	            case 'Page forward &rarr;':$translated_text = 'nächste Seite &rarr;';break;
 
 	            case 'Switzerland': $translated_text = 'Schweiz';break;
+	            case 'Italy': $translated_text = 'Italien';break;
 	            case 'France': $translated_text = 'Frankreich';break;
 	            case 'monthly': $translated_text = 'monatlich';break;
 	            case 'weekly': $translated_text = 'wöchentlich';break;
@@ -179,12 +180,17 @@
 		        case 'Plot':				$translated_text =  'Grundstück';break;
 		        case 'Secondary rooms':		$translated_text =  'Wohnnebenräume';break;
 		        case 'Garden':				$translated_text =  'Garten';break;
-		        case 'Commercial':			$translated_text =  'Gewerbe';break;
+		        case 'Commercial':			$translated_text =  'Büro';break;
 
 		        case 'Description':				$translated_text =  'Beschreibung';break;
 		        case 'Reference':				$translated_text =  'Referenz';break;
 		        case 'Distances':				$translated_text =  'Distanzen';break;
-			
+
+		        case 'Available':				$translated_text =  'Verfügbar';break;
+		        case 'Reserved':				$translated_text =  'Reserviert';break;
+		        case 'Planned':					$translated_text =  'In Planung';break;
+		        case 'Under construction':		$translated_text =  'Im Bau';break;
+
 			
 	        }
 

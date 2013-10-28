@@ -386,6 +386,7 @@ function casasync_convert_categoryKeyToLabel($key){
         case 'secondary-rooms': return __('Secondary rooms' ,'casasync');break;
         case 'garden': return __('Garden' ,'casasync');break;
         case 'commercial': return __('Commercial' ,'casasync');break;
+        default: return $key; break;
     }
 }
 function casasync_get_allDistanceKeys(){
@@ -654,9 +655,10 @@ function contact_fn( $atts ) {
             }
         }
         //spam
-        if ($_POST['email']) {
+        if ($_POST['email'] || strpos($_POST['message'], 'http://')) {
             $validation = false;
         }
+
         if ($validation) {
 
             $casa_id = get_post_meta( $post_id, 'casasync_id', $single = true );
@@ -828,7 +830,7 @@ function contact_fn( $atts ) {
         echo $table;
     ?>
         <form class="form casasync-property-contact-form" id="casasyncPropertyContactForm" method="POST" action="">
-            <input type="hidden" name="email" value="" />
+            <input id="theApsoluteRealEmailField" type="text" name="email" value="" placeholder="NlChT8 AuSf$lLeN" />
                 <div class="row-fluid">
                     <div class="span5">
                         <label for="firstname"><?php echo __('First name', 'casasync') ?></label>

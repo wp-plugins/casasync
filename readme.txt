@@ -27,6 +27,11 @@ Well, yes it is!
 
 == Changelog ==
 
+= 3.0.0 = 
+* new: Vollständige Überarbeitung des Plugins. Bitte beachten!
+* new: Twitter Bootstrap 3 Support (Mit BS2)
+* new: Objektorientiertes verhalten (alte Template Engine wird nicht mehr unterstützt!)
+
 = 2.1.6 = 
 * bug: Street number import and display
 

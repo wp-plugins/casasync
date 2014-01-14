@@ -365,6 +365,8 @@ class Import {
         $netPrice_propertysegment = '';
         $netPrice                 = 0;
 
+        $priceForOrder = 0;
+
         $availability       = '';
         $availability_label = '';
 
@@ -448,6 +450,16 @@ class Import {
             }
             $grossPrice = (float) $property->offer->grossPrice->__toString();
           }
+
+          $tmp_price      = $price;
+          $tmp_grossPrice = $grossPrice;
+          $tmp_netPrice   = $netPrice;
+          $tmp_price = ($tmp_price == 0) ? (9999999999) : ('');
+          $tmp_grossPrice = ($tmp_grossPrice == 0) ? (9999999999) : ('');
+          $tmp_netPrice = ($tmp_netPrice == 0) ? (9999999999) : ('');
+
+          $priceForOrder = str_pad($tmp_netPrice, 10, 0, STR_PAD_LEFT) . str_pad($tmp_grossPrice, 10, 0, STR_PAD_LEFT) . str_pad($tmp_price, 10, 0, STR_PAD_LEFT);
+
           if($property->offer->extraCost){
             foreach ($property->offer->extraCost as $extraCost) {
               $timesegment     = '';
@@ -529,7 +541,7 @@ class Import {
           $seller_org_fax = $property->offer->seller->organization->faxNumber->__toString();
           if ($property->offer->seller->organization->phone) {
             $central = false;
-            foreach ($property->offer->seller->organization->organization as $phone) {
+            foreach ($property->offer->seller->organization->phone as $phone) {
               if ($phone['type']) {
                 switch ($phone['type']->__toString()) {
                   case 'direct':
@@ -664,6 +676,7 @@ class Import {
             || (string) $netPrice_timesegment                           != (string) (isset($wp_post_custom['netPrice_timesegment'])                    ? $wp_post_custom['netPrice_timesegment'][0] : '')
             || (string) $netPrice_propertysegment                       != (string) (isset($wp_post_custom['netPrice_propertysegment'])                ? $wp_post_custom['netPrice_propertysegment'][0] : '')
             || (float)  $netPrice                                       != (float) (isset($wp_post_custom['netPrice'])                                 ? $wp_post_custom['netPrice'][0] : '')
+            || (string) $priceForOrder                                  != (string) (isset($wp_post_custom['priceForOrder'])                            ? $wp_post_custom['priceForOrder'][0] : '')
             || (array)  $extraPrice                                     != (array) (isset($wp_post_custom['extraPrice'])                               ? json_decode($wp_post_custom['extraPrice'][0], true) : array())
             || (string) $seller_org_address_country                     != (string) (isset($wp_post_custom['seller_org_address_country'])              ? $wp_post_custom['seller_org_address_country'][0] : '')
             || (string) $seller_org_address_locality                    != (string) (isset($wp_post_custom['seller_org_address_locality'])             ? $wp_post_custom['seller_org_address_locality'][0] : '')
@@ -723,7 +736,8 @@ class Import {
             $the_post_custom['grossprice']                              = (float)  $grossPrice;
             $the_post_custom['netPrice_timesegment']                    = (string) $netPrice_timesegment;
             $the_post_custom['netPrice_propertysegment']                = (string) $netPrice_propertysegment;
-            $the_post_custom['netPrice']                                = (float)  $netPrice;
+            $the_post_custom['netPrice']                                = (float) $netPrice;
+            $the_post_custom['priceForOrder']                           = (string) $priceForOrder;
             $the_post_custom['extraPrice']                              = (string) json_encode($extraPrice);
             $the_post_custom['seller_org_address_country']              = (string) $seller_org_address_country;
             $the_post_custom['seller_org_address_locality']             = (string) $seller_org_address_locality;
@@ -795,12 +809,12 @@ class Import {
           if (in_array($key, $all_numval_keys)) {            
             switch ($key) {
               //multiple simple values
-              case 'floor':
-                $the_value = '';
+              case 'multiple':
+                /*$the_value = '';
                 foreach ($numval as $key2 => $value) {
                   $the_value .= ($key2 != 0 ? '+' : '') . '[' . $value['from']['value'] . ']'; 
                 }
-                $xml_numval[$key] = $the_value;
+                $xml_numval[$key] = $the_value;*/
                 break;
               //simple value with si
               case 'surface_living':
@@ -819,6 +833,7 @@ class Import {
                 $xml_numval[$key] = $the_value;
                 break;
               //INT
+              case 'floor':
               case 'year_built':
               case 'year_renovated':
                 $the_value = '';
@@ -914,7 +929,7 @@ class Import {
           }
           //set post custom fields
           foreach ($the_post_custom as $key => $value) {
-            if ($value) {
+            if ($value != "") {
               update_post_meta($the_id, $key, $value);
             } else {
               delete_post_meta($the_id, $key, $value);

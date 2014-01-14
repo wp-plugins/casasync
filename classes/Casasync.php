@@ -86,14 +86,14 @@ class CasaSync {
             } elseif ( $theme_file = locate_template( array( 'casasync-single.php' ) ) ) {
                 $template_path = $theme_file;
             } else {
-                $template_path = CASASYNC_PLUGIN_DIR . '/single.php';
+                $template_path = CASASYNC_PLUGIN_DIR . '/casasync-single.php';
             }
         }
         if (is_tax('casasync_salestype') || is_tax('casasync_category') || is_tax('casasync_location') || is_post_type_archive( 'casasync_property' )) {
             if ( $theme_file = locate_template(array('casasync-archive.php'))) {
                 $template_path = $theme_file;
             } else {
-                $template_path = CASASYNC_PLUGIN_DIR . '/archive.php';
+                $template_path = CASASYNC_PLUGIN_DIR . '/casasync-archive.php';
             }
         }
         return $template_path;
@@ -104,7 +104,28 @@ class CasaSync {
             if (is_tax('casasync_salestype') || is_tax('casasync_category') || is_tax('casasync_location') || is_post_type_archive('casasync_property')) {
                 $posts_per_page = get_option('posts_per_page', 10);
                 $query->set('posts_per_page', $posts_per_page);
-                $query->set('orderby', 'date');
+                $query->set('order', get_option('casasync_archive_order', 'DESC'));
+
+                switch (get_option('casasync_archive_orderby', 'date')) {
+                    case 'title':
+                        $query->set('orderby', 'title');
+                        break;
+                    case 'location':
+                        $query->set('meta_key', 'casasync_property_address_locality');
+                        $query->set('orderby', 'meta_value');
+                        break;
+                    case 'price':
+                        $query->set('meta_key', 'priceForOrder');
+                        $query->set('orderby', 'meta_value');
+                        break;
+                    case 'date':
+                    default:
+                        $query->set('orderby', 'date');
+                        break;
+                }
+                //echo '<pre>';
+                //echo print_r($query);
+                //echo '</pre>';
 
                 $taxquery_new = array();
 
@@ -141,7 +162,6 @@ class CasaSync {
                     );
                 }
 
-                /* Filter einbauen */
                 if ((isset($_GET['casasync_salestype_s']) && is_array($_GET['casasync_salestype_s']) )) {
                     $salestypes = $_GET['casasync_salestype_s'];
                 } elseif (isset($_GET['casasync_salestype_s'])) {
@@ -289,6 +309,7 @@ class CasaSync {
                 true
             );
         }
+
     }
 
     function setTranslation(){
@@ -527,6 +548,7 @@ class CasaSync {
             'street'      => __('Street', 'casasync'), //'Strasse',
             'postal_code' => __('ZIP', 'casasync'), //'PLZ',
             'locality'    => __('Locality', 'casasync'), //'Stadt',
+            'country'     => __('Country', 'casasync'), // Land
             'state'       => __('Kanton', 'casasync'), //'Kanton',
             'subject'     => __('Subject', 'casasync'), //'Betreff',
             'message'     => __('Message', 'casasync'), //'Nachricht',
@@ -541,6 +563,7 @@ class CasaSync {
                 'street',
                 'postal_code',
                 'locality',
+                'country',
                 'emailreal',
                 'subject',
                 'message'
@@ -608,7 +631,7 @@ class CasaSync {
                         15 => (isset($_POST['lastname']) ? $_POST['lastname'] : ''),
                         16 => (isset($_POST['company']) ? $_POST['company'] : ''),
                         17 => (isset($_POST['street']) ? $_POST['street'] : ''),
-                        18 => (isset($_POST['postal_code']) ? $_POST['postal_code'] : ''),
+                        18 => (isset($_POST['country']) ? $_POST['country'] . '-' : '') . (isset($_POST['postal_code']) ? $_POST['postal_code'] : ''),
                         19 => (isset($_POST['locality']) ? $_POST['locality'] : ''),
                         20 => (isset($_POST['phone']) ? $_POST['phone'] : ''),
                         21 => (isset($_POST['mobile']) ? $_POST['mobile'] : ''),
@@ -767,6 +790,21 @@ class CasaSync {
                     </div>
                 </div>
                 <div class="row-fluid">
+                    <div class="span12">
+                        <label for="country"><?php echo __('Country', 'casasync') ?></label>
+                        <select name="country" class="span12" style="margin-bottom:10px;">
+                            <?php
+                                foreach($this->conversion->country_arrays() AS $code => $country)
+                                {
+                                    (!isset($_POST['country'])) ? ($_POST['country'] = 'CH') : ('');
+                                    $selected = ($_POST['country'] == $code ) ? ('selected=selected') : ('');
+                                    echo '<option value="' . $code . '" ' . $selected . '>' . $country . '</option>';
+                                }
+                            ?>
+                        </select>
+                    </div>
+                </div>
+                <div class="row-fluid">
                     <label for="phone"><?php echo __('Phone', 'casasync') ?></label>
                     <input name="phone" class="span12" value="<?php echo (isset($_POST['phone']) ? $_POST['phone'] : '') ?>"  type="text" id="phone" />
                 </div>
@@ -829,6 +867,23 @@ class CasaSync {
                         <div class="form-group">
                             <label for="locality"><?php echo __('Locality', 'casasync') ?></label>
                             <input name="locality" class="casasync-form-control" value="<?php echo (isset($_POST['locality']) ? $_POST['locality'] : '') ?>"  type="text" id="locality" />
+                        </div>
+                    </div>
+                </div>
+                <div class="casasync-row">
+                    <div class="casasync-col-md-12">
+                        <div class="casasync-form-group">
+                            <label for="country"><?php echo __('Country', 'casasync') ?></label>
+                            <select name="country" class="casasync-form-control">
+                                <?php
+                                    foreach($this->conversion->country_arrays() AS $code => $country)
+                                    {
+                                        (!isset($_POST['country'])) ? ($_POST['country'] = 'CH') : ('');
+                                        $selected = ($_POST['country'] == $code ) ? ('selected=selected') : ('');
+                                        echo '<option value="' . $code . '" ' . $selected . '>' . $country . '</option>';
+                                    }
+                                ?>
+                            </select>
                         </div>
                     </div>
                 </div>

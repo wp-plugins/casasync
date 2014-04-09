@@ -15,8 +15,18 @@
            'categories'   => $this->getCategoryOptions(),
            'locations'    => $this->getLocationsOptions(false),
            'salestypes'   => $this->getSalestypeOptions(),
-           'archive_link' => $this->getArchiveLink()
+           'archive_link' => $this->getArchiveLink(),
+           'order'        => $this->getOrder(),
+           'orderby'      => $this->getOrderby()
        );
+
+        wp_enqueue_script(
+            'casasync_script',
+            CASASYNC_PLUGIN_URL . 'assets/js/script.js',
+            array( 'jquery'),
+            false,
+            true
+        );
 
        wp_localize_script( 'casasync_script', 'casasyncParams', $script_params );
     }
@@ -92,11 +102,10 @@
             'total'    => $GLOBALS['wp_query']->max_num_pages,
             'current'  => $paged,
             'mid_size' => 1,
-            'add_args' => array_map( 'urlencode', $query_args ),
+            'add_args' => $query_args,
             'prev_text' => '&laquo;',
             'next_text' => '&raquo;',
             'type' => 'list',
-            'add_args' => false, //TODO: add filter arguments
         ) );
 
         if ( $links ) {
@@ -128,6 +137,14 @@
             return $return;
         }
       }
+    }
+
+    public function getOrder(){
+        return get_option("casasync_archive_order");
+    }
+
+    public function getOrderby(){
+        return get_option("casasync_archive_orderby");
     }
 
     public function getCategoryOptions(){
@@ -214,7 +231,7 @@
             //list all other countries in seperate optgroup
             if (isset($otherCountry)) {
                 foreach ( $otherCountry as $countryCode => $country ) {
-                    $return .= "<optgroup label='" . $this->conversion->countrycode_to_countryname($countryCode)  . "''>";
+                    $return .= "<optgroup label='" . $this->conversion->countrycode_to_countryname($countryCode)  . "'>";
                     foreach ( $country as $location ) {
                         //$return .= "<option class='lvl2' value='" . $location->slug . "' " . (in_array($location->slug, $locations) ? 'SELECTED' : '') . ">" . '' . $location->name . ' (' . $location->count . ')' . "</option>";      
                         $return .= "<option class='lvl2' value='" . $location->slug . "' " . (in_array($location->slug, $locations) ? 'SELECTED' : '') . ">" . '' . $location->name . "</option>";      
@@ -258,19 +275,41 @@
         }
         $terms = get_terms('casasync_salestype');
         $options = array();
-        if (count($terms) > 1) {
-            foreach ($terms as $term) {
-                $options[$term->slug]['value'] = $term->slug; 
-                //$options[$term->slug]['label'] = __(ucfirst($term->name)) . ' (' . $term->count . ')';
-                $options[$term->slug]['label'] = __(ucfirst($term->name), 'casasync');
-                $options[$term->slug]['checked'] = (in_array($term->slug, $salestypes) ? 'SELECTED' : '');
+        foreach ($terms as $term) {
+            $options[$term->slug]['value'] = $term->slug; 
+            //$options[$term->slug]['label'] = __(ucfirst($term->name)) . ' (' . $term->count . ')';
+            if ($term->slug == 'buy') {
+                $options[$term->slug]['label'] = __('Buy', 'casasync');
+            } elseif ($term->slug == 'rent') {
+                $options[$term->slug]['label'] = __('Rent', 'casasync');
+            } else {
+                $options[$term->slug]['label'] = ucfirst($term->name);
             }
+
+            $options[$term->slug]['checked'] = (in_array($term->slug, $salestypes) ? 'SELECTED' : '');
         }
         return $options;
     }
 
-    public function getFilterForm($size = 'large', $wrapper_class = 'casasync-filterform-wrap', $title = 'Erweiterte Suche'){
+    public function getStickyProperties(){
+        if (get_option( 'sticky_posts' )) {
+            global $wp_query;
+            $new_query = $wp_query->query_vars;
+            $new_query['post__in'] = get_option( 'sticky_posts' );
+            $new_query['post__not_in'] = array();
+            $the_query = new \WP_Query($new_query);
+            return $the_query;
+        } else {
+            return false;
+        }
+    }
+
+
+    public function getFilterForm($size = 'large', $wrapper_class = 'casasync-filterform-wrap', $title = false){ //'Erweiterte Suche'
         global $wp_query;
+        if (!$title) {
+            $title = __('Advanced Search', 'casasync');
+        }
         $size = ($size == 'large') ? ('large') : ('small');
         $return =  '<div class="' . $wrapper_class . ' ' . $size . '">';
         $return .=  '<h3>' . $title . '</h3>';
@@ -280,12 +319,14 @@
             $return .= '<input type="hidden" name="post_type" value="casasync_property" />';
         }
 
-        $return .= '<select name="casasync_salestype_s[]" multiple class="casasync_multiselect chosen-select" data-placeholder="' . __('Choose offer','casasync') . '">';
         $salestype_options = $this->getSalestypeOptions();
-        foreach ($salestype_options as $option) {
-            $return .= "<option value='" . $option['value'] . "' " . $option['checked'] . ">" . $option['label'] . "</option>";
+        if(count($salestype_options) > 1) {
+            $return .= '<select name="casasync_salestype_s[]" multiple class="casasync_multiselect chosen-select" data-placeholder="' . __('Choose offer','casasync') . '">';
+            foreach ($salestype_options as $option) {
+                $return .= "<option value='" . $option['value'] . "' " . $option['checked'] . ">" . $option['label'] . "</option>";
+            }
+            $return .= '</select>';
         }
-        $return .= '</select>';
 
         $return .= '<select name="casasync_category_s[]" multiple class="casasync_multiselect chosen-select" data-placeholder="' . __('Choose category','casasync') . '">';
         $cat_options = $this->getCategoryOptions();

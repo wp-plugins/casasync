@@ -135,8 +135,25 @@
       $args = array(
         'post_type' => 'casasync_property',
         'posts_per_page' => $posts_per_page,
-        'tax_query' => $taxquery_new
+        'tax_query' => $taxquery_new, 
       );
+      switch (get_option('casasync_archive_orderby', 'date')) {
+        case 'title':
+            $args['orderby'] = 'title';
+            break;
+        case 'location':
+            $args['meta_key'] = 'casasync_property_address_locality';
+            $args['orderby'] = 'meta_value';
+            break;
+        case 'price':
+            $args['orderby'] = 'price';
+            break;
+        case 'date':
+        default:
+            $args['orderby'] = 'date';
+            break;
+      }
+      $args['order'] = get_option('casasync_archive_order', 'DESC');
       $the_query = new \WP_Query( $args );
 
       $prev = false;
@@ -176,7 +193,7 @@
       $this->attachments = get_posts( array(
         'post_type'                => 'attachment',
         'posts_per_page'           => -1,
-        'post_parent'              => $post->ID,
+        'post_parent'              => get_the_ID(),
         //'exclude'                => get_post_thumbnail_id(),
         'casasync_attachment_type' => 'image',
         'orderby'                  => 'menu_order',
@@ -186,7 +203,7 @@
       $this->documents = get_posts( array(
         'post_type'                => 'attachment',
         'posts_per_page'           => -1,
-        'post_parent'              => $post->ID,
+        'post_parent'              => get_the_ID(),
         //'exclude'                => get_post_thumbnail_id(),
         'casasync_attachment_type' => 'document',
         'orderby'                  => 'menu_order'
@@ -195,7 +212,7 @@
       $this->plans = get_posts( array(
         'post_type'                => 'attachment',
         'posts_per_page'           => -1,
-        'post_parent'              => $post->ID,
+        'post_parent'              => get_the_ID(),
         //'exclude'                => get_post_thumbnail_id(),
         'casasync_attachment_type' => 'plan'
       ) ); 
@@ -262,10 +279,10 @@
       $net['propertysegment'] = get_post_meta( get_the_ID(), 'netPrice_propertysegment', $single = true );
       $net['timesegment']     = get_post_meta( get_the_ID(), 'netPrice_timesegment', $single = true );
 
-      $extra_costs_json =  get_post_meta( get_the_ID(), 'extraPrice', $single = true ); 
+      $extra_costs_json =  get_post_meta( get_the_ID(), 'extraPrice', $single = true );
       $extra_costs_arr = array();
-      if ($extra_costs_json) {
-        $extra_costs_arr = json_decode($extra_costs_json, true);
+      if ($extra_costs_json && $extra_costs_json != '[]') {
+        $extra_costs_arr = $extra_costs_json;
       }
 
       $this->prices = array(
@@ -275,7 +292,7 @@
         'extra_costs' => $extra_costs_arr
       );
 
-      $this->urls = json_decode(get_post_meta( get_the_ID(), 'casasync_urls', $single = true ), true);
+      $this->urls = get_post_meta( get_the_ID(), 'casasync_urls', $single = true );
 
       foreach ($this->conversion->casasync_get_allNumvalKeys() as $numval_key) {
         $numval = get_post_meta( get_the_ID(), $numval_key, $single = true );
@@ -375,7 +392,6 @@
     public function getGallery(){
 
       if ($this->attachments) {
-
 
         if(get_option('casasync_load_css') == 'bootstrapv2') {
           $return = '<div class="casasync-slider-currentimage" id="slider">';
@@ -596,7 +612,7 @@
       $price_title = ($this->main_basis == 'rent') ? (__('rent', 'casasync')) : (__('Price', 'casasync'));
         $content .= '<h4>' . $price_title . '</h4>';
         if ($this->main_basis == 'buy') {
-          $content .= __('Sales price:', 'casasync') . '<br>';
+          $content .= __('Sales price:', 'casasync') . ' ';
           if ($this->getPrice('sales')) {
             $content .= $this->getPrice('sales', 'full');
           } else {
@@ -618,7 +634,7 @@
           }
         }
         if ($this->getExtraCosts('Nebenkosten')) {
-          $content .= __('Additional costs', 'casasync') . ':<br> ' . $this->getExtraCosts('Nebenkosten');
+          $content .= '<br>' . __('Additional costs', 'casasync') . ': ' . $this->getExtraCosts('Nebenkosten');
         }
       $content .= '</div></div>';
       return $content;
@@ -705,6 +721,14 @@
         $content .= $this->getAllFeatures();
         $content .= '</div>';
       }
+
+      if ($this->getAllDocuments()){
+        $content .= '<div class="casasync-documents">';
+        $content .= '<h3>' . __('Documents','casasync') . '</h3>';
+        $content .= $this->getAllDocuments();
+        $content .= '</div>';
+      }
+
       if ($this->getAllDistances()) {
         $content .= '<div class="casasync_distances">';
         $content .= '<h3>' . __('Distances','casasync') . '</h3>';
@@ -967,29 +991,6 @@
       }
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     public function getTabable(){
       $class = (get_option('casasync_load_css') == 'bootstrapv2') ? (' nav nav-tabs') : (null); // hack for bs2
       $nav = '<ul class="casasync-tabable-nav' . $class . '">';
@@ -1079,7 +1080,7 @@
       if ($i > 0) {
         $html = '<div class="single-property-container">'
           .'<p class="casasyncContact"><i class="fa fa-envelope"></i> '
-          .'<a href="#casasyncPropertyContactForm" id="casasyncContactAnchor">Jetzt Anbieter direkt kontaktieren</a>'
+          .'<a href="#casasyncPropertyContactForm" id="casasyncContactAnchor">' . __('Contact provider directly', 'casasync') . '</a>'
         .'</p></div>';
         return $html;
       }
@@ -1398,6 +1399,32 @@
       return $html;
     }
 
+    public function getAllDocuments() {
+      $html = false;
+      $count = 1;
+      $args = array(
+        'post_parent' => get_the_ID(),
+        'post_type' => 'attachment',
+      );
+      $attachments = get_children( $args );
+      if($attachments) {
+        $html .= '<ul class="casasync-unstyled">';
+        foreach ( (array) $attachments as $attachment_id => $attachment ) {
+          if(strpos($attachment->post_mime_type, 'image') === false ) {
+            $url = wp_get_attachment_url( $attachment_id );
+            $title = (is_numeric($attachment->post_title)) ? (__('Document', 'casasync') . ' ' . $count) : ($attachment->post_title);
+            $html .= '<li><a href="' . $url . '" title="' . $title . '" target="_blank" >' . $title . '</a></li>';
+            $count++;
+          }
+        }
+        $html .= '</ul>';
+      }
+      if($count > 1) {
+        return $html;
+      }
+    }
+
+
     public function getFeaturedImage() {
       $return = NULL;
       $pid = get_the_ID();
@@ -1412,7 +1439,7 @@
 
     public function getAvailability() {
       $return = NULL;
-      if (isset($this->availability)) {
+      if (isset($this->availability) && $this->availability) {
         $return .= '<div class="availability-outerlabel">';
         $return .= '<div class="availability-label availability-label-' . $this->availability . '">' . __($this->availability, 'casasync') . '</div>';
         $return .= '</div>';

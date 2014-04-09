@@ -1,3 +1,8 @@
+<?php 
+/*
+Template Name: Objekt Archive
+*/
+?>
 <?php $template = new CasaSync\Templateable(); ?>
 <?php $archive = new CasaSync\Archive(); ?>
 
@@ -8,13 +13,41 @@
 	<?php else: ?>	
 		<div class="casasync-archive entry-content">
 			<?php if ( have_posts() ): ?>
+				<?php /*<div class="casasync-row">
+					<aside class="casasync-archive-aside">
+						<?php echo $archive->getFilterForm('small'); ?>
+					</aside>
+				</div>*/ ?>
 				<div class="casasync-row">
 					<div class="casasync-archive-content">
+						<?php if (get_option('casasync_show_sticky_properties')):
+							$sticky_properties = $archive->getStickyProperties();
+							if ( $sticky_properties && $sticky_properties->have_posts() ) : ?>
+								<?php while ( $sticky_properties->have_posts() ) : $sticky_properties->the_post(); ?>
+									<?php $single = new CasaSync\Single($post);?>
+									<?php if ($template->setTemplate('archive_single', $single)): ?>
+										<?php echo $template->render(); ?>
+									<?php else: ?>
+										<div class="casasync-property casasync-property-featured">
+											<div class="casasync-thumbnail-wrapper">
+												<?php //echo $single->getAvailability(); ?>
+												<?php echo ($single->getFeaturedImage() ? $single->getFeaturedImage() : '<div class="casasync-missing-gallery">' . __('No image', 'casasync') . '</div>'); ?>
+											</div>
+											<div class="casasync-text">
+												<h3><a href="<?php echo $single->getPermalink() ?>"><?php echo $single->getTitle(); ?></a></h3>
+												<?php echo $single->getQuickInfosTable(); ?>
+											</div>
+										</div>
+										<hr class="soften">
+									<?php endif; ?>
+								<?php endwhile; ?>
+							<?php endif; ?>
+						<?php endif; ?>
 						<?php while ( have_posts() ) : the_post(); ?>
 							<?php $single = new CasaSync\Single($post);?>
 							<?php if ($template->setTemplate('archive_single', $single)): ?>
 								<?php echo $template->render(); ?>
-							<?php else: ?>	
+							<?php else: ?>
 								<div class="casasync-property">
 									<div class="casasync-thumbnail-wrapper">
 										<?php //echo $single->getAvailability(); ?>

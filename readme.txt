@@ -3,7 +3,7 @@ Contributors: immobilien-portale.ch
 Donate link:http://immobilien-plugin.ch
 Tags: immobilien, real estate, openimmo, idx
 Requires at least: 3.5.2
-Tested up to: 3.5.2
+Tested up to: 3.8
 Stable tag: /trunk/
 Author: Casasoft AG
 Author URI: http://casasoft.ch

@@ -8,11 +8,6 @@
 	<?php else: ?>	
 		<div class="casasync-archive entry-content">
 			<?php if ( have_posts() ): ?>
-				<?php /*<div class="casasync-row">
-					<aside class="casasync-archive-aside">
-						<?php echo $archive->getFilterForm('small'); ?>
-					</aside>
-				</div>*/ ?>
 				<div class="casasync-row">
 					<div class="casasync-archive-content">
 						<?php while ( have_posts() ) : the_post(); ?>

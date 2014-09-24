@@ -11,7 +11,7 @@ Template Name: Objekt Archive
 	<?php if ($template->setTemplate('archive', $archive)): ?>
 		<?php echo $template->render(); ?>
 	<?php else: ?>	
-		<div class="casasync-archive entry-content">
+		<div class="casasync-archive">
 			<?php if ( have_posts() ): ?>
 				<?php /*<div class="casasync-row">
 					<aside class="casasync-archive-aside">
@@ -30,7 +30,6 @@ Template Name: Objekt Archive
 									<?php else: ?>
 										<div class="casasync-property casasync-property-featured">
 											<div class="casasync-thumbnail-wrapper">
-												<?php //echo $single->getAvailability(); ?>
 												<?php echo ($single->getFeaturedImage() ? $single->getFeaturedImage() : '<div class="casasync-missing-gallery">' . __('No image', 'casasync') . '</div>'); ?>
 											</div>
 											<div class="casasync-text">

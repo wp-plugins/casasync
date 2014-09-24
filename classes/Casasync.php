@@ -111,7 +111,7 @@ class CasaSync {
                 $template_path = CASASYNC_PLUGIN_DIR . '/casasync-single.php';
             }
         }
-        if (is_tax('casasync_salestype') || is_tax('casasync_category') || is_tax('casasync_location') || is_post_type_archive( 'casasync_property' )) {
+        if (is_tax('casasync_salestype') || is_tax('casasync_availability') || is_tax('casasync_category') || is_tax('casasync_location') || is_post_type_archive( 'casasync_property' )) {
             if ( $theme_file = locate_template(array('casasync-archive.php'))) {
                 $template_path = $theme_file;
             } else {
@@ -125,7 +125,7 @@ class CasaSync {
     public function customize_casasync_category($query){
 
         if ($query->is_main_query()) {
-            if (is_tax('casasync_salestype') || is_tax('casasync_category') || is_tax('casasync_location') || is_post_type_archive('casasync_property')) {
+            if (is_tax('casasync_salestype') || is_tax('casasync_availability') || is_tax('casasync_category') || is_tax('casasync_location') || is_post_type_archive('casasync_property')) {
 
                 $posts_per_page = get_option('posts_per_page', 10);
                 $query->set('posts_per_page', $posts_per_page);
@@ -146,6 +146,13 @@ class CasaSync {
                         break;
                     case 'price':
                         $query->set('meta_key', 'priceForOrder');
+                        $query->set('orderby', 'meta_value');
+                        break;
+                    case 'menu_order':
+                        $query->set('orderby', 'menu_order');
+                        break;
+                    case 'casasync_referenceId':
+                        $query->set('meta_key', 'casasync_referenceId');
                         $query->set('orderby', 'meta_value');
                         break;
                     case 'date':
@@ -206,6 +213,27 @@ class CasaSync {
                     $taxquery_new[] = array(
                         'taxonomy' => 'casasync_salestype',
                         'terms' => $salestypes,
+                        'include_children' => 1,
+                        'field' => 'slug',
+                        'operator'=> 'IN'
+                     );
+                }
+
+
+                $availabilities = array();
+                if ((isset($_GET['casasync_availability_s']) && is_array($_GET['casasync_availability_s']) )) {
+                    $availabilities = $_GET['casasync_availability_s'];
+                } elseif (isset($_GET['casasync_availability_s'])) {
+                    $availabilities = array($_GET['casasync_availability_s']);
+                } elseif(is_tax('casasync_availability')) {
+                } else {
+                    //reference and taken are hidden by default
+                    $availabilities = array('active','reserved');
+                }
+                if ($availabilities) {
+                    $taxquery_new[] = array(
+                        'taxonomy' => 'casasync_availability',
+                        'terms' => $availabilities,
                         'include_children' => 1,
                         'field' => 'slug',
                         'operator'=> 'IN'
@@ -554,6 +582,32 @@ class CasaSync {
         register_taxonomy( 'casasync_salestype', array( 'casasync_property' ), $args );
 
         $labels = array(
+            'name'                       => __( 'Property availability', 'casasync' ),
+            'singular_name'              => __( 'Availability', 'casasync' ),
+            'search_items'               => __( 'Search availabilities', 'casasync' ),
+            'popular_items'              => __( 'Popular Availabilities', 'casasync' ),
+            'all_items'                  => __( 'All Availabilities', 'casasync' ),
+            'edit_item'                  => __( 'Edit Availability', 'casasync' ),
+            'update_item'                => __( 'Update Availability', 'casasync' ),
+            'add_new_item'               => __( 'Add New Availability', 'casasync' ),
+            'new_item_name'              => __( 'New Availability Name', 'casasync' ),
+            'separate_items_with_commas' => __( 'Separate availabilities with commas', 'casasync' ),
+            'add_or_remove_items'        => __( 'Add or remove availabilities', 'casasync' ),
+            'choose_from_most_used'      => __( 'Choose from the most used availabilities', 'casasync' ),
+            'not_found'                  => __( 'No Availabilities found.', 'casasync' ),
+            'menu_name'                  => __( 'Availability', 'casasync' )
+        );
+        $args = array(
+            'hierarchical'      => false,
+            'labels'            => $labels,
+            'show_ui'           => true,
+            'show_admin_column' => true,
+            'query_var'         => true,
+            'rewrite'           => array( 'slug' => 'immobilien-verfuegbarkeit' )
+        );
+        register_taxonomy( 'casasync_availability', array( 'casasync_property' ), $args );
+
+        $labels = array(
           'name'              => __( 'Property Attachment Types', 'casasync' ),
             'singular_name'     => __( 'Attachment Type', 'casasync' ),
             'search_items'      => __( 'Search Attachment Types', 'casasync' ),
@@ -586,7 +640,7 @@ class CasaSync {
 
     public function contact_shortcode($atts){
         extract( shortcode_atts( array(
-            'recipients' => 'Steven Imhof:si@casasoft.ch',
+            'recipients' => 'Casasoft:dev@casasoft.ch',
             'remcat'     => false,
             'ccs'        => '',
             'post_id'    => false
@@ -673,9 +727,9 @@ class CasaSync {
             }
             if ($validation) {
                 $casa_id = get_post_meta( $post_id, 'casasync_id', $single = true );
-                $casa_id_arr = explode('_', $casa_id);
-                $customer_id = $casa_id_arr[0];
-                $property_id = $casa_id_arr[1];
+                $casa_id_arr = preg_split('/(?<=\d)(?=[a-z])|(?<=[a-z])(?=\d)/i', $casa_id);
+                $property_id = $casa_id_arr[0];
+                $property_lang = $casa_id_arr[1];
 
                 //REM
                 if ($remcat != '') {
@@ -698,7 +752,7 @@ class CasaSync {
                         9  => get_post_meta($post_id, 'casasync_property_address_streetaddress', true),
                         10 => get_post_meta($post_id, 'casasync_property_address_locality', true),
                         11 => $type,
-                        12 => 'DE', //LANG
+                        12 => $property_lang,
                         13 => '', //anrede
                         14 => (isset($_POST['firstname']) ? $_POST['firstname'] : ''),
                         15 => (isset($_POST['lastname']) ? $_POST['lastname'] : ''),
@@ -714,6 +768,7 @@ class CasaSync {
                         25 => '',
                         26 => ''
                     );
+
                     $remCat_str = '';
                     foreach ($remCat as $key => $value) {
                         $remCat_str .= '#' . $value;
@@ -762,7 +817,7 @@ class CasaSync {
                     $message .= '</tr>';
                 }
                 $message.='</table>';
-    
+
                 $template = str_replace('{:logo_src:}', '#', $template);
                 $template = str_replace('{:logo_url:}', '#', $template);
                 $template = str_replace('{:site_title:}', $_SERVER['SERVER_NAME'], $template);

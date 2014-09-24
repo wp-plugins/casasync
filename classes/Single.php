@@ -33,6 +33,7 @@
     public $urls = array();
     public $availability = false;
     public $availability_label = '';
+    public $the_availability = ''; //taxonomy
     public $start = false;
     public $seller = array(
       'fallback'      => false,
@@ -130,7 +131,6 @@
       }
 
 
-
       $posts_per_page = get_option('posts_per_page', 10);
       $args = array(
         'post_type' => 'casasync_property',
@@ -147,6 +147,13 @@
             break;
         case 'price':
             $args['orderby'] = 'price';
+            break;
+        case 'menu_order':
+            $args['orderby'] = 'menu_order';
+            break;
+        case 'casasync_referenceId':
+            $args['meta_key'] = 'casasync_referenceId';
+            $args['orderby'] = 'meta_value';
             break;
         case 'date':
         default:
@@ -238,7 +245,24 @@
       $categories = wp_get_post_terms( get_the_ID(), 'casasync_category'); 
       $this->categories_names = array();
       foreach ($categories as $category) {
-        $this->categories_names[] = $this->conversion->casasync_convert_categoryKeyToLabel($category->name);
+        if ($this->conversion->casasync_convert_categoryKeyToLabel($category->slug, $category->name)) {
+          $this->categories_names[] = $this->conversion->casasync_convert_categoryKeyToLabel($category->slug, $category->name);
+        }
+      } 
+
+      $availabilities = wp_get_post_terms( get_the_ID(), 'casasync_availability'); 
+      $availability = false;
+      if ($availabilities) {
+        $availability = $availabilities[0];
+        $this->the_availability = $this->conversion->casasync_convert_availabilityKeyToLabel($availability->slug);
+      }
+
+      
+      $this->categories_names = array();
+      foreach ($categories as $category) {
+        if ($this->conversion->casasync_convert_categoryKeyToLabel($category->slug, $category->name)) {
+          $this->categories_names[] = $this->conversion->casasync_convert_categoryKeyToLabel($category->slug, $category->name);
+        }
       } 
 
       $floors = get_post_meta( get_the_ID(), 'floor', $single = true ); 
@@ -271,9 +295,9 @@
       $sales['propertysegment'] = get_post_meta( get_the_ID(), 'price_propertysegment', $single = true );
       $sales['timesegment']     = get_post_meta( get_the_ID(), 'price_timesegment', $single = true );
 
-      $gross['num']             = get_post_meta( get_the_ID(), 'grossprice', $single = true );
-      $gross['propertysegment'] = get_post_meta( get_the_ID(), 'grossprice_propertysegment', $single = true );
-      $gross['timesegment']     = get_post_meta( get_the_ID(), 'grossprice_timesegment', $single = true );
+      $gross['num']             = get_post_meta( get_the_ID(), 'grossPrice', $single = true );
+      $gross['propertysegment'] = get_post_meta( get_the_ID(), 'grossPrice_propertysegment', $single = true );
+      $gross['timesegment']     = get_post_meta( get_the_ID(), 'grossPrice_timesegment', $single = true );
 
       $net['num']             = get_post_meta( get_the_ID(), 'netPrice', $single = true );
       $net['propertysegment'] = get_post_meta( get_the_ID(), 'netPrice_propertysegment', $single = true );
@@ -318,6 +342,7 @@
       $this->seller['postalcode']    = get_post_meta( get_the_ID(), 'seller_org_address_postalcode', $single = true );
       $this->seller['street']        = get_post_meta( get_the_ID(), 'seller_org_address_streetaddress', $single = true );
       $this->seller['legalname']     = get_post_meta( get_the_ID(), 'seller_org_legalname', $single = true );
+      $this->seller['brand']         = get_post_meta( get_the_ID(), 'seller_org_brand', $single = true );
       $this->seller['email']         = get_post_meta( get_the_ID(), 'seller_org_email', $single = true );
       $this->seller['fax']           = get_post_meta( get_the_ID(), 'seller_org_fax', $single = true );
       $this->seller['phone_direct']  = get_post_meta( get_the_ID(), 'seller_org_phone_direct', $single = true );
@@ -373,7 +398,8 @@
 
     public function getAvailabilityLabel(){
       $return = false;
-      if($this->start) {
+      # old
+      /*if($this->start) {
         $current_datetime = strtotime(date('c'));
         $property_datetime = strtotime($this->start);
         if ($property_datetime > $current_datetime && $this->start != false) {
@@ -385,7 +411,22 @@
       }
       if($this->availability_label != '') {
         $return = $this->conversion->casasync_convert_availabilityKeyToLabel($this->availability_label);
+      }*/
+
+      #new
+      if($this->start) {
+        $current_datetime = strtotime(date('c'));
+        $property_datetime = strtotime($this->start);
+        if ($property_datetime > $current_datetime && $this->start != false) {
+          $datetime = new \DateTime(str_replace(array("+02:00", "+01:00"), "", $this->start));
+          $return = date_i18n(get_option('date_format'), $datetime->getTimestamp());
+        } else {
+          $return = $this->conversion->casasync_convert_availabilityKeyToLabel('immediately');
+        }
+      } else {
+        $return = __('On Request', 'casasync');
       }
+
       return $return;
     }
 
@@ -456,6 +497,9 @@
                     $return .= '<div class="casasync-carousel-caption '.$class.'">';
                       $return .= '<p>' . $attachment->post_excerpt . '</p>';
                     $return .= '</div>';
+                  }
+                  if ($this->getAvailability()) {
+                    $return .= $this->getAvailability();
                   }
                   
                 $return .= '</div>';
@@ -634,7 +678,7 @@
           }
         }
         if ($this->getExtraCosts('Nebenkosten')) {
-          $content .= '<br>' . __('Additional costs', 'casasync') . ': ' . $this->getExtraCosts('Nebenkosten');
+          $content .= '<br>'.__('Additional costs', 'casasync') . ': ' . $this->getExtraCosts('Nebenkosten');
         }
       $content .= '</div></div>';
       return $content;
@@ -683,6 +727,14 @@
           <td class="width-25"> ' . __('Additional costs', 'casasync') . '</td>'
           .'<td class="width-75">' . $this->getExtraCosts('Nebenkosten') . '</td>'
         .'</tr>';
+      }
+      if ($this->the_availability) {
+        $content .= '<tr>'
+              .'<td class="width-25">' . __('Availability','casasync') . '</td>'
+            .'<td class="width-75">';
+            $content .= $this->the_availability;
+            $content .= '</td>'
+            .'</tr>';
       }
       $content .= '</table>';
 
@@ -733,6 +785,13 @@
         $content .= '<div class="casasync_distances">';
         $content .= '<h3>' . __('Distances','casasync') . '</h3>';
         $content .= $this->getAllDistances();
+        $content .= '</div>';
+      }
+
+      if ($this->getProvidedURL()) {
+        $content .= '<div class="casasync_provided_url">';
+        $content .= '<h3>' . __('Link','casasync') . '</h3>';
+        $content .= $this->getProvidedURL();
         $content .= '</div>';
       }
 
@@ -908,6 +967,13 @@
                   $return .= $this->getAvailabilityLabel();
                   $return .= '</td>'
                   .'</tr>';
+                } else {
+                  $return .= '<tr>'
+                    .'<th>' . __('Available','casasync') . '</th>'
+                  .'<td>';
+                  $return .= __('On Request', 'casasync');
+                  $return .= '</td>'
+                  .'</tr>';
                 }
               break;
             default:
@@ -1061,9 +1127,10 @@
       $return = NULL;
       if ($this->getAddress('property')){
         if(get_option('casasync_single_use_zoomlevel') != '0'){
-          $map_url = "https://maps.google.com/maps?f=q&amp;source=s_q&amp;hl=" . substr(get_locale(), 0, 2)  . "&amp;geocode=&amp;q=" . urlencode( str_replace(' ',', ', str_replace('<br>', ', ', $this->getAddress('property') ))) . "&amp;aq=&amp;ie=UTF8&amp;hq=&amp;hnear=" . urlencode( str_replace('<br>', ', ', $this->getAddress('property') )) . "&amp;t=m&amp;z=12&amp;output=embed";
+          $map_url = "https://maps.google.com/maps?f=q&amp;source=s_q&amp;hl=" . substr(get_locale(), 0, 2)  . "&amp;geocode=&amp;q=" . urlencode( str_replace(' ',', ', str_replace('<br>', ', ', $this->getAddress('property') ))) . "&amp;aq=&amp;ie=UTF8&amp;hq=&amp;hnear=" . urlencode( str_replace('<br>', ', ', $this->getAddress('property') )) . "&amp;t=m&amp;z=12";
+          $map_url_embed = $map_url . '&amp;output=embed';
           $return = '<div class="casasync-hidden-xs"><div class="casasync-map" style="display:none" data-address="'. str_replace('<br>', ', ', $this->getAddress('property')) . '"><div id="map-canvas" style="width:100%; height:400px;" ></div><br /><small><a href="' . $map_url . '" class="casasync-fancybox" data-fancybox-type="iframe">' . __('View lager version', 'casasync') . '</a></small></div></div>';
-          $return .= '<div class="casasync-visible-xs"><a class="btn btn-default btn-block" href="' . $map_url . '"><i class="icon icon-map-marker"></i> Auf Google Maps anzeigen</a></div>';
+          $return .= '<div class="casasync-visible-xs"><a class="btn btn-default btn-block" href="' . $map_url . '" target="_blank"><i class="fa fa-map-marker"></i> Auf Google Maps anzeigen</a></div>';
         }
       }
       return $return;
@@ -1103,6 +1170,7 @@
       if($this->hasSeller()) {
         $return  = '<h3><i class="fa fa-briefcase"></i> ' . __('Provider' , 'casasync') . '</h3><address>';
         $return .= ($this->seller['legalname'] != '') ? ('<strong>' . $this->seller['legalname'] . '</strong><br>') : ('');
+        $return .= ($this->seller['brand'] != '') ? ($this->seller['brand'] . '<br>') : ('');
         $return .= $this->getAddress('seller');
 
         $return .= '<div class="casasync-seller-infos">';
@@ -1292,25 +1360,27 @@
             }
           }
           if ($this->main_basis == 'rent') {
-            if ($this->prices['gross'] || $this->prices['net']) {
+            if ($this->prices['gross']['num'] || $this->prices['net']['num']) {
               if ($this->prices['gross']) {
                 $price = $this->prices['gross'];
               }
-              if ($this->prices['net']) {
+              if ($this->prices['net']['num']) {
                 $price = $this->prices['net'];
               }
             }
           }
           break;
       }
+
+      $return = '';
       switch ($format) {
         case 'num':
-          $return = $price['num'];
+          $return .= $price['num'];
           break;
         case 'currency':
         case 'formated':
         case 'full':
-          $return = $this->price_currency . ' ';
+          $return .= $this->price_currency . ' ';
         case 'formated':
         case 'full':
           if(array_key_exists('num', $price) && $price['num'] != NULL) {
@@ -1322,22 +1392,77 @@
                       ) . '.–';
           }
         case 'full':
-            $return .= (array_key_exists('propertysegment', $price) && $price['propertysegment'] != NULL && $price['propertysegment'] != 'full') ? (' / ' . substr($price['propertysegment'], 0, -1) . '<sup>2</sup>') : ('');
-            $sep     = (array_key_exists('propertysegment', $price) && $price['propertysegment'] != NULL && $price['propertysegment'] != 'full') ? (__('per', 'casasync')) : ('/');
-            $return .= (array_key_exists('timesegment', $price)     && $price['timesegment']     != NULL && $price['timesegment'] != 'infinite') ? (' ' . $sep . ' ' . str_replace($price['timesegment'], $timesegment_labels[$price['timesegment']], $price['timesegment'])) : ('');
+            $sep     = '/';
+            if (
+                array_key_exists('propertysegment', $price) 
+                && $price['propertysegment'] != NULL 
+                && $price['propertysegment'] != 'full'
+            ) {
+                $return .= '&nbsp;' . $sep . '&nbsp;' . substr($price['propertysegment'], 0, -1) . '<sup>2</sup>';              
+            }
+            if (
+                array_key_exists('timesegment', $price)     
+                && $price['timesegment'] != NULL 
+                && $price['timesegment'] != 'infinite'
+            ) {
+                $return .= '&nbsp;' . $sep . '&nbsp;' . str_replace($price['timesegment'], $timesegment_labels[$price['timesegment']], $price['timesegment']);
+            }
+      }
+      if ($return) {
+        $return = '<span style="white-space: nowrap;">' . $return . '</span>';
       }
       return $return;
     }
 
     public function getExtraCosts($name) {
       $return = null;
-      if(!empty($this->prices['extra_costs'])) {
-        foreach ($this->prices['extra_costs'] as $key => $value) {
-          if ($value['title'] == $name) {
-            $return = $value['value'];
+      if(!empty($this->prices['extra_costs']) && is_array($this->prices['extra_costs'])) {
+        foreach ($this->prices['extra_costs'] as $key => $extraCost) {
+
+          $timesegment     = '';
+          $propertysegment = '';
+          $offer_types = get_terms('casasync_salestype');
+
+          foreach ($offer_types as $k => $v) {
+            $offer_type = $v->name = 'rent' ? 'rent' : 'buy';
+          }
+
+          $timesegment = $extraCost['timesegment'];
+          if (!in_array($timesegment, array('m','w','d','y','h','infinite'))) {
+            $timesegment = ($offer_type == 'rent' ? 'm' : 'infinite');
+          }
+
+          $propertysegment = $extraCost['propertysegment'];
+          if (!in_array($propertysegment, array('m2','km2','full'))) {
+            $propertysegment = 'full';
+          }
+
+          $timesegment_labels = array(
+            'm' => __('month', 'casasync'),
+            'w' => __('week', 'casasync'),
+            'd' => __('day', 'casasync'),
+            'y' => __('year', 'casasync'),
+            'h' => __('hour', 'casasync')
+          );
+
+          $extraPrice = array(
+            'value' => '<span style="white-space: nowrap;">'.
+              (isset($extraCost['currency']) && $extraCost['currency'] ? $extraCost['currency'] . '&nbsp;' : '') .
+              number_format(round($extraCost['price']), 0, '', '\'') . '.&#8211;' .
+              ($propertysegment != 'full' ? '&nbsp;/&nbsp;' . substr($propertysegment, 0, -1) . '<sup>2</sup>' : '') .
+              ($timesegment != 'infinite' ? '&nbsp;/&nbsp;' . $timesegment_labels[(string) $timesegment] : '')
+              . '</span>'
+            ,
+            'title' => (string) $extraCost['title']
+          );
+
+          $return = false;
+          if ($extraCost['title'] == $name) {
+            $return = $extraPrice['value'];
           }
         }
       }
+
       return $return;
     }
 
@@ -1351,7 +1476,17 @@
         case 'surface_usable':
         case 'surface_living':
         case 'surface_property':
-          return (isset($this->numvals[$name]) ? ($this->numvals[$name]['value'] . '<sup>2</sup>') : false);
+          if (isset($this->numvals[$name])) {
+            preg_match_all('/^(\d+)(\w+)$/', $this->numvals[$name]['value'], $matches);
+            $number = implode($matches[1]);
+            $letter = implode($matches[2]);
+            return number_format($number, 0, '.', "'") . $letter . '<sup>2</sup>';
+          } else {
+            return false;
+          }
+          break;
+        case 'volume':
+          return (isset($this->numvals[$name]) ? ($this->numvals[$name]['value'] . '<sup>3</sup>') : false);
           break;
         case 'distances':
           $distances = array();
@@ -1371,10 +1506,10 @@
       }
     }
 
-    public function getAllNumvals($sort = NULL) {
+     public function getAllNumvals($sort = NULL) {
       $return = array();
       foreach ($this->numvals as $numval) {
-        if (array_search($numval["key"], $sort)) {
+        if (array_search($numval["key"], $sort) !== false) {
           $return[array_search($numval["key"], $sort)] = $numval;
         } else {
           $array_keys_to_num = !empty($return) ? max(array_keys($return)) : 0;
@@ -1382,6 +1517,7 @@
           $return[$h_key] = $numval;
         }
       }
+      ksort($return);
       return $return;
     }
 
@@ -1424,12 +1560,25 @@
       }
     }
 
+    public function getProvidedURL() {
+      $html = NULL;
+      $providedURL = get_post_meta(get_the_ID(), 'the_urls');
+      if($providedURL) {
+        if(substr($providedURL[0][0]['href'], 0, 4) != "http") {
+          $providedURL[0][0]['href'] = 'http://' . $providedURL[0][0]['href'];
+        }
+        $html = '<a href="' . $providedURL[0][0]['href'] . '" title="' . $providedURL[0][0]['title'] . '" target="_blank">' . $providedURL[0][0]['label'] . '</a>';
+      }
+      return $html;
+    }
 
-    public function getFeaturedImage() {
+
+    public function getFeaturedImage($link = true) {
       $return = NULL;
       $pid = get_the_ID();
       if (has_post_thumbnail($pid)) {
-        $return .= '<a href ="' . get_permalink($pid) . '" class="casasync-thumbnail" style="position:relative;">';
+        $url = ($link ? get_permalink($pid) : '#');
+        $return .= '<a href ="' . $url . '" class="casasync-thumbnail" style="position:relative;">';
         $return .= $this->getAvailability();
         $return .= get_the_post_thumbnail($pid, 'casasync-thumb');
         $return .= '</a>';
@@ -1440,8 +1589,31 @@
     public function getAvailability() {
       $return = NULL;
       if (isset($this->availability) && $this->availability) {
+        switch ($this->availability) {
+          case 'active':
+            $availability_converted_slug = 'active';
+            break;
+          case 'reference':
+            $availability_converted_slug = 'reference';
+            break;
+          case 'reserved':
+            $availability_converted_slug = 'reserved';
+            break;
+          case 'taken':
+            if ($this->main_basis == 'rent') {
+              $availability_converted_slug = 'rented';
+            } else {
+              $availability_converted_slug = 'sold';
+            }
+            break;
+          default:
+            $availability_converted_slug = $this->availability;
+            break;
+        }
+        $availability_converted_name = $this->conversion->casasync_convert_availabilityKeyToLabel($availability_converted_slug);
+
         $return .= '<div class="availability-outerlabel">';
-        $return .= '<div class="availability-label availability-label-' . $this->availability . '">' . __($this->availability, 'casasync') . '</div>';
+        $return .= '<div class="availability-label availability-label-' . $this->availability . '">' . __($availability_converted_name, 'casasync') . '</div>';
         $return .= '</div>';
       }
       return $return;

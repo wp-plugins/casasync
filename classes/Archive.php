@@ -15,6 +15,7 @@
            'categories'   => $this->getCategoryOptions(),
            'locations'    => $this->getLocationsOptions(false),
            'salestypes'   => $this->getSalestypeOptions(),
+           'availabilities'=> $this->getAvailabilityOptions(),
            'archive_link' => $this->getArchiveLink(),
            'order'        => $this->getOrder(),
            'orderby'      => $this->getOrderby()
@@ -28,7 +29,7 @@
             true
         );
 
-       wp_localize_script( 'casasync_script', 'casasyncParams', $script_params );
+        wp_localize_script( 'casasync_script', 'casasyncParams', $script_params );
     }
 
     public function getArchiveLink(){
@@ -48,6 +49,14 @@
                 }
             }
         }
+        $casasync_availability_s = array();
+        if ($this->getAvailabilityOptions()) {
+            foreach ($this->getAvailabilityOptions() as $slug => $options) {
+                if ($options['checked']) {
+                    $casasync_availability_s[] = $options['value'];
+                }
+            }
+        }
         $casasync_location_s = array();
         if ($this->getLocationsOptions()) {
             foreach ($this->getLocationsOptions() as $slug => $options) {
@@ -60,6 +69,7 @@
         $query = array(
             'casasync_location_s' => $casasync_location_s,
             'casasync_salestype_s' => $casasync_salestype_s,
+            'casasync_availability_s' => $casasync_availability_s,
             'casasync_category_s' => $casasync_category_s,
         );
 
@@ -158,10 +168,14 @@
         $options = array();
         $terms = get_terms('casasync_category');
         foreach ($terms as $term) {
-            $options[$term->slug]['value'] = $term->slug; 
+            $label = $this->conversion->casasync_convert_categoryKeyToLabel($term->slug, $term->name);
             //$options[$term->slug]['label'] = $this->conversion->casasync_convert_categoryKeyToLabel($term->name) . ' (' . $term->count . ')';
-            $options[$term->slug]['label'] = $this->conversion->casasync_convert_categoryKeyToLabel($term->name);
-            $options[$term->slug]['checked'] = (in_array($term->slug, $categories) ? 'SELECTED' : '');
+           
+            if ($label) {
+                $options[$term->slug]['value'] = $term->slug; 
+                $options[$term->slug]['label'] = $label;
+                $options[$term->slug]['checked'] = (in_array($term->slug, $categories) ? 'SELECTED' : '');
+            }
         }
         return $options;
     }
@@ -178,7 +192,7 @@
         foreach ($terms as $term) {
             if (in_array($term->slug, $categories) || $return_unchecked ) {
                 $options[$term->slug]['value'] = $term->slug; 
-                $options[$term->slug]['label'] = $this->conversion->casasync_convert_categoryKeyToLabel($term->name);
+                $options[$term->slug]['label'] = $term->name;
                 $options[$term->slug]['checked'] = (in_array($term->slug, $categories) ? 'SELECTED' : '');
             }
         }
@@ -291,6 +305,44 @@
         return $options;
     }
 
+    public function getAvailabilityOptions() {
+        global $wp_query;
+        $casasync_availability = get_terms('casasync_availability');
+        foreach ($casasync_availability as $term) {            
+            if (isset($wp_query->query_vars['casasync_availability'])) {
+                $cur_basis = explode(',', $wp_query->query_vars['casasync_availability'] );
+            } else {
+                $cur_basis = array();
+            }
+        }
+        $availabilities = array();
+        foreach ($wp_query->tax_query->queries as $tax_query) {
+            if ($tax_query['taxonomy'] == 'casasync_availability') {
+                $availabilities = $tax_query['terms'];
+            }
+        }
+        $terms = get_terms('casasync_availability');
+        $options = array();
+        foreach ($terms as $term) {
+            $options[$term->slug]['value'] = $term->slug; 
+            //$options[$term->slug]['label'] = __(ucfirst($term->name)) . ' (' . $term->count . ')';
+            if ($term->slug == 'active') {
+                $options[$term->slug]['label'] = __('Active', 'casasync');
+            } elseif ($term->slug == 'reference') {
+                $options[$term->slug]['label'] = __('Reference', 'casasync');
+            } elseif ($term->slug == 'reserved') {
+                $options[$term->slug]['label'] = __('Reserved', 'casasync');
+            } elseif ($term->slug == 'taken') {
+                $options[$term->slug]['label'] = __('Taken', 'casasync');
+            } else {
+                $options[$term->slug]['label'] = ucfirst($term->name);
+            }
+
+            $options[$term->slug]['checked'] = (in_array($term->slug, $availabilities) ? 'SELECTED' : '');
+        }
+        return $options;
+    }
+
     public function getStickyProperties(){
         if (get_option( 'sticky_posts' )) {
             global $wp_query;
@@ -314,6 +366,8 @@
         $return =  '<div class="' . $wrapper_class . ' ' . $size . '">';
         $return .=  '<h3>' . $title . '</h3>';
         $return .= '<form action="' .  get_post_type_archive_link( 'casasync_property' ) . '" class="casasync-filterform">';
+
+        $return .= ($size == 'small') ? '<div class="wrap">' : null;
         //if permalinks are off
         if ( get_option('permalink_structure') == '' ) {
             $return .= '<input type="hidden" name="post_type" value="casasync_property" />';
@@ -338,7 +392,17 @@
         $return .= '<select name="casasync_location_s[]" multiple class="casasync_multiselect chosen-select" data-placeholder="' . __('Choose locality','casasync') . '">';
         $return .= $this->getLocationsOptionsHyr();
         $return .= '</select>';
-                
+
+        $availability_options = $this->getAvailabilityOptions();
+        if(count($availability_options) > 1) {
+            $return .= '<select name="casasync_availability_s[]" multiple class="hidden" data-placeholder="' . __('Choose availability','casasync') . '">';
+            foreach ($availability_options as $option) {
+                $return .= "<option value='" . $option['value'] . "' " . $option['checked'] . ">" . $option['label'] . "</option>";
+            }
+            $return .= '</select>';
+        }
+        $return .= ($size == 'small') ? '</div>' : null;
+
         $return .= '<input class="casasync-filterform-button" type="submit" value="' . __('Search','casasync') . '" />';
         $return .= '</form>';
         $return .= '<div class="clearfix"></div>';

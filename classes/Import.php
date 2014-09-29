@@ -322,47 +322,19 @@ class Import {
   }
 
   public function updateInsertWPMLconnection($offer_pos, $wp_post, $lang, $casasync_id){
-    global $wpdb;
     if ($this->hasWPML()) {
-      if ($offer_pos == 1) {
-        $this->curtrid = $wp_post->ID;
+
+      if ($this->getMainLang() == $lang) {
+        $this->curtrid = wpml_get_content_trid('post_casasync_property', $wp_post->ID);
       }
 
-      $row = $wpdb->get_row( 'SELECT * FROM '.$wpdb->prefix.'icl_translations 
-          WHERE element_id = "' .$wp_post->ID. '" 
-          AND element_type = "post_' . $wp_post->post_type . '" 
-          
-        '
-        );
-      if ($row) {
-        if (
-          $row->trid != $this->curtrid
-          || $row->language_code != $lang
-          || $row->source_language_code != $this->getMainLang()
-        ) {
-        $wpdb->update( $wpdb->prefix.'icl_translations',
-            array(
-              'trid' => $this->curtrid,
-              'language_code' => $lang,
-              'source_language_code' => $this->getMainLang()
-            ),
-            array(
-              'element_id' => $wp_post->ID,
-              'element_type' => 'post_' . $wp_post->post_type
-            ) );
-            $this->transcript[$casasync_id]['language'][] = 'updated';
-        }
-      } elseif(!$row) {
-        $wpdb->insert( $wpdb->prefix.'icl_translations',
-            array(
-              'trid' => $this->curtrid,
-              'language_code' => $lang,
-              'source_language_code' => $this->getMainLang(),
-              'element_id' => $wp_post->ID,
-              'element_type' => 'post_' . $wp_post->post_type
-            )
-        );
-        $this->transcript[$casasync_id]['language'][] = 'inserted';
+      $_POST['icl_post_language'] = $lang; 
+      
+      global $sitepress;
+      if ($this->getMainLang() != $lang) {
+        $sitepress->set_element_language_details($wp_post->ID, 'post_casasync_property', $this->curtrid, $lang, $sitepress->get_default_language(), true);
+      } else {
+        $sitepress->set_element_language_details($wp_post->ID, 'post_casasync_property', $this->curtrid, $lang, NULL, true);
       }
     }
   }
@@ -1017,6 +989,14 @@ class Import {
 
   }
 
+  public function addToLog($transcript){
+    $dir = CASASYNC_CUR_UPLOAD_BASEDIR  . '/casasync/logs';
+    if (!file_exists($dir)) {
+        mkdir($dir, 0777, true);
+    }
+    file_put_contents($dir."/".date('Y M').'.log', "\n".json_encode(array(date('Y.m.d H:i') => $transcript)), FILE_APPEND);
+  }
+
   public function casasyncImport(){
     if ($this->getImportFile()) {
       
@@ -1092,6 +1072,8 @@ class Import {
 
     //3. remove all the unused properties
     $properties_to_remove = get_posts(  array(
+      'suppress_filters'=>true,
+      'language'=>'ALL',
       'numberposts' =>  100,
       'exclude'     =>  $found_posts,
       'post_type'   =>  'casasync_property',
@@ -1101,6 +1083,8 @@ class Import {
     foreach ($properties_to_remove as $prop_to_rm) {
       //remove the attachments
       $attachments = get_posts( array(
+        'suppress_filters'=>true,
+        'language'=>'ALL',
         'post_type'      => 'attachment',
         'posts_per_page' => -1,
         'post_parent'    => $prop_to_rm->ID,
@@ -1116,6 +1100,8 @@ class Import {
     }
 
     flush_rewrite_rules();
+
+    $this->addToLog($this->transcript);
   }
 
   public function simpleXMLget($node, $fallback = false){
@@ -1165,7 +1151,8 @@ class Import {
         }
       }
       //persist change
-      wp_insert_post($new_main_data);
+      $newPostID = wp_insert_post($new_main_data);
+
     }
 
 
@@ -1186,8 +1173,8 @@ class Import {
     $new_meta_data['casasync_property_address_streetaddress'] = $this->simpleXMLget($property->address->street);
     $new_meta_data['casasync_property_address_streetnumber']  = $this->simpleXMLget($property->address->streetNumber);
     if ($property->geo) {
-      $new_meta_data['casasync_property_geo_latitude']          = (int) $this->simpleXMLget($property->geo->latitude);
-      $new_meta_data['casasync_property_geo_longitude']         = (int) $this->simpleXMLget($property->geo->longitude);
+      $new_meta_data['casasync_property_geo_latitude']          = (float) $this->simpleXMLget($property->geo->latitude);
+      $new_meta_data['casasync_property_geo_longitude']         = (float) $this->simpleXMLget($property->geo->longitude);
     }
     $new_meta_data['casasync_start']                          = $this->simpleXMLget($xmloffer->start);
     $new_meta_data['casasync_referenceId']                    = $this->simpleXMLget($property->referenceId);

@@ -131,7 +131,8 @@
 			'appearance'  => 'Design',
 			'singleview'  => 'Einzelansicht',
 			'archiveview' => 'Archivansicht',
-			'contactform' => 'Kontaktformular'
+			'contactform' => 'Kontaktformular',
+			'logs' => 'Logs'
 		); 
 	    echo screen_icon('options-general');
 	    echo '<h2 class="nav-tab-wrapper">';
@@ -939,6 +940,36 @@
 							</tr>
 						<?php echo $table_end; ?>
 						<?php
+					break;
+				case 'logs':
+					$dir = CASASYNC_CUR_UPLOAD_BASEDIR  . '/casasync/logs';
+					$log = $dir."/".date('Y M').'.log';
+					echo "<h3>" . date('Y M') . "</h3>";
+					echo "<table>";
+				    if (is_file($log)) {
+				    	$file_handle = fopen($log, "r");
+						while (!feof($file_handle)) {
+							echo "<tr>";
+							$line = fgets($file_handle);
+							$arr = json_decode($line, true);
+							if ($arr) {
+						   		foreach ($arr as $datestamp => $properties) {
+						   			echo '<th valign="top"><strong>'.$datestamp.'</strong></th><td valign="top"><pre style="margin-top:0px;padding-left:10px;">';
+						   				foreach ($properties as $slug => $property) {
+						   					echo "\n" . $slug . ': ' . json_encode($property);
+						   				}
+						   			echo '</pre></td>';
+						   		}
+						  	} else {
+								echo '<th valign="top"></th><td valign="top"><pre style="margin-top:0px;padding-left:10px;">'.$line.'</pre></td>';	
+							}
+							echo "</tr>";
+						   
+						}
+						fclose($file_handle);	
+				    }
+				    echo "</table>";
+
 					break;
 				case 'general':
 				default:

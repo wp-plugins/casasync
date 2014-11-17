@@ -7,6 +7,7 @@
     public $attachments = array();
     public $documents = array();
     public $plans = array();
+    public $logos = array();
     public $address_street = false;
     public $address_streetnumber = false;
     public $address_postalcode = false;
@@ -222,6 +223,14 @@
         'post_parent'              => get_the_ID(),
         //'exclude'                => get_post_thumbnail_id(),
         'casasync_attachment_type' => 'plan'
+      ) ); 
+
+      $this->logos = get_posts( array(
+        'post_type'                => 'attachment',
+        'posts_per_page'           => -1,
+        'post_parent'              => get_the_ID(),
+        //'exclude'                => get_post_thumbnail_id(),
+        'casasync_attachment_type' => 'offer-logo'
       ) ); 
 
       $this->address_street       = get_post_meta( get_the_ID(), 'casasync_property_address_streetaddress', $single = true );
@@ -446,7 +455,7 @@
                       $i++;
                       $return .= '<div class="' . ($i == 1 ? 'active' : '') . ' item" data-slide-number="'.($i-1) .'">';
                         $thumbimgL = wp_get_attachment_image( $attachment->ID, 'full', true );
-                        $return .= '<a href="'. wp_get_attachment_url( $attachment->ID ) .'" data-featherlight="#casasync-property-images">'. $thumbimgL .'</a>';
+                        $return .= '<a href="'. wp_get_attachment_url( $attachment->ID ) .'" data-featherlight="image">'. $thumbimgL .'</a>';
                         $return .= '<div id="carousel-text" class="carousel-caption" >';
                         if($attachment->post_excerpt != '') {
                           $return .= '<p>'. $attachment->post_excerpt .'</p>';
@@ -487,11 +496,11 @@
                 $return .= '<div class="item '.($i==0?'active':'').'">';
                   $img     = wp_get_attachment_image( $attachment->ID, 'full', true, array('class' => 'carousel-image') );
                   $img_url = wp_get_attachment_image_src( $attachment->ID, 'full' );
-                  if (get_option('casasync_load_featherlight', false)) {
-                    $return .= '<a class="property-image-gallery" href="' . $img_url[0] . '" title="' . $attachment->post_excerpt . '">' . $img . '</a>';
-                  } else {
+                  /*if (get_option('casasync_load_featherlight', false)) {*/
+                    $return .= '<a class="property-image-gallery" rel="casasync-single-gallery" href="' . $img_url[0] . '" title="' . $attachment->post_excerpt . '">' . $img . '</a>';
+                  /*} else {
                     $return .= $img;
-                  }
+                  }*/
                   if ($attachment->post_excerpt) {
                     $class = ($indicators != '0') ? ('hasIndicators') : (null);
                     $return .= '<div class="casasync-carousel-caption '.$class.'">';
@@ -535,6 +544,40 @@
         //  $return .= '</ul></div>';
         //}
         return $return;
+      }
+    }
+
+    public function getGalleryThumbnails() {
+      $html = '';
+
+      if ($this->attachments) {
+        $html .= '<div class="casasync-gallery-thumbnails">';
+        $max_thumbnail = get_option('casasync_single_max_thumbnails', 15);
+        $count = 0;
+          foreach ( $this->attachments as $attachment ) {
+            if ($count < $max_thumbnail) {
+              $thumbImgMeidum = wp_get_attachment_image( $attachment->ID, 'thumbnail', true );
+              $thumbImgFull = wp_get_attachment_image_src( $attachment->ID, 'full', true );
+              $html .= '<a class="property-image-gallery" rel="casasync-thumbnail-gallery" href="' . $thumbImgFull[0] . '" title="' . $attachment->post_excerpt . '">' . $thumbImgMeidum . '</a>';
+            }
+            $count++;
+          }
+        $html .= '</div>';
+      }
+
+      return $html;
+    }
+
+    //TODO: Svgs dont work yet
+    public function getLogo(){
+      if ($this->logos) {
+        foreach ($this->logos as $logo) {
+          $img     = wp_get_attachment_image( $logo->ID, 'full', true, array('class' => 'carousel-image') );
+          $img_url = wp_get_attachment_image_src( $logo->ID, 'full' );
+          if ($img_url) {
+            return '<img class="casasync-offer-logo img-responsive" alt="Property Logo" title="Property Logo" src="'.$img_url[0].'" />';
+          }
+        }
       }
     }
 
@@ -1166,9 +1209,12 @@
         }
     }
 
-    public function getSeller() {
+    public function getSeller($title = true, $icon = true) {
       if($this->hasSeller()) {
-        $return  = '<h3><i class="fa fa-briefcase"></i> ' . __('Provider' , 'casasync') . '</h3><address>';
+        $return = '';
+        if ($title) {
+            $return  .= '<h3>'.($icon ? '<i class="fa fa-briefcase"></i> ' : '') . __('Provider' , 'casasync') . '</h3><address>';
+        }
         $return .= ($this->seller['legalname'] != '') ? ('<strong>' . $this->seller['legalname'] . '</strong><br>') : ('');
         $return .= ($this->seller['brand'] != '') ? ($this->seller['brand'] . '<br>') : ('');
         $return .= $this->getAddress('seller');
@@ -1222,9 +1268,9 @@
       }
     }
 
-    public function getSalesPerson() {
+    public function getSalesPerson($title = true, $icon = true) {
       if ($this->hasSalesPerson()) {
-        $return = '<h3><i class="fa fa-user"></i> ' . __('Contact person' , 'casasync') . '</h3><address>';
+        $return = '<h3>'.($icon ? '<i class="fa fa-briefcase"></i> ' : '') . __('Contact person' , 'casasync') . '</h3><address>';
         if ($this->salesperson['givenname'] != '' && $this->salesperson['familyname'] != '') {
           $return .= '<p><strong>' . $this->salesperson['givenname'] . ' ' . $this->salesperson['familyname'] . '</strong>';
         }

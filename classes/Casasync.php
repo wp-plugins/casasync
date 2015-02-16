@@ -114,7 +114,9 @@ class CasaSync {
             }
         }
         if (is_tax('casasync_salestype') || is_tax('casasync_availability') || is_tax('casasync_category') || is_tax('casasync_location') || is_post_type_archive( 'casasync_property' )) {
-            if ( $theme_file = locate_template(array('casasync-archive.php'))) {
+            if ($_GET && isset($_GET['casasync_map'])) {
+                $template_path = CASASYNC_PLUGIN_DIR . '/ajax/properties.php';
+            } elseif ( $theme_file = locate_template(array('casasync-archive.php'))) {
                 $template_path = $theme_file;
             } else {
                 $template_path = CASASYNC_PLUGIN_DIR . '/casasync-archive.php';
@@ -125,6 +127,7 @@ class CasaSync {
 
 
     public function customize_casasync_category($query){
+        $query->set('post-type', "casasync_property");
 
         if ($query->is_main_query()) {
             if (is_tax('casasync_salestype') || is_tax('casasync_availability') || is_tax('casasync_category') || is_tax('casasync_location') || is_post_type_archive('casasync_property')) {
@@ -151,7 +154,7 @@ class CasaSync {
                         $query->set('orderby', 'meta_value');
                         break;
                     case 'menu_order':
-                        $query->set('orderby', 'menu_order');
+                        $query->set('orderby', 'menu_order date');
                         break;
                     case 'casasync_referenceId':
                         $query->set('meta_key', 'casasync_referenceId');

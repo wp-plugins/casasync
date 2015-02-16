@@ -70,7 +70,78 @@
     public function __construct($post){ 
       $this->conversion = new Conversion;
       $this->setProperty($post);
-    }  
+    }
+
+    public function getPropertyQuery() {
+      $query = $_GET;
+      $w_categories = array();
+      if (isset($query['casasync_category_s'])) {
+        foreach ($query['casasync_category_s'] as $slug => $value) {
+          $w_categories[] = $value;
+        }
+      }
+      $taxquery_new = array();
+      if ($w_categories) {
+        $taxquery_new[] =
+           array(
+               'taxonomy' => 'casasync_category',
+               'terms' => $w_categories,
+               'include_children' => 1,
+               'field' => 'slug',
+               'operator'=> 'IN'
+           )
+        ;
+      }
+
+      $w_locations = array();
+      if (isset($query['casasync_location_s'])) {
+        foreach ($query['casasync_location_s'] as $slug => $options) {
+          $w_locations[] = $value;
+        }
+        if ($w_locations) {
+          $taxquery_new[] =
+             array(
+                 'taxonomy' => 'casasync_location',
+                 'terms' => $w_locations,
+                 'include_children' => 1,
+                 'field' => 'slug',
+                 'operator'=> 'IN'
+             )
+          ;
+        }
+      }
+      $w_salestypes = array();
+      if (isset($query['casasync_salestype_s'])) {
+        if (!is_array($query['casasync_salestype_s'])) {
+          $query['casasync_salestype_s'] = array($query['casasync_salestype_s']);
+        }
+        foreach ($query['casasync_salestype_s'] as $slug => $value) {
+          $w_salestypes[] = $value;
+        }
+      }
+      if ($w_salestypes) {
+        $taxquery_new[] =
+           array(
+               'taxonomy' => 'casasync_salestype',
+               'terms' => $w_salestypes,
+               'include_children' => 1,
+               'field' => 'slug',
+               'operator'=> 'IN'
+           )
+        ;
+      }
+
+      $posts_per_page = 2000;
+      $args = array(
+        'post_type' => 'casasync_property',
+        'posts_per_page' => $posts_per_page,
+        'tax_query' => $taxquery_new, 
+      );
+
+      $the_query = new \WP_Query( $args );
+
+      return $the_query;
+    }
 
     public function getPrevNext($query){
       $w_categories = array();
@@ -111,6 +182,7 @@
           ;
         }
       }
+
       $w_salestypes = array();
       if (array_key_exists('salestypes', $query)) {
         foreach ($query['salestypes'] as $slug => $options) {
@@ -130,7 +202,28 @@
            )
         ;
       }
-
+      
+      $w_availabilities = array();
+      if (array_key_exists('availabilities', $query)) {
+        foreach ($query['availabilities'] as $slug => $options) {
+          if ($options['checked']) {
+            $w_availabilities[] = $options['value'];
+          }
+        }
+      } else {
+        $w_availabilities = array('active','reserved');
+      }
+      if ($w_availabilities) {
+        $taxquery_new[] =
+           array(
+               'taxonomy' => 'casasync_availability',
+               'terms' => $w_availabilities,
+               'include_children' => 1,
+               'field' => 'slug',
+               'operator'=> 'IN'
+           )
+        ;
+      }
 
       $posts_per_page = get_option('posts_per_page', 10);
       $args = array(
@@ -426,9 +519,12 @@
       if($this->start) {
         $current_datetime = strtotime(date('c'));
         $property_datetime = strtotime($this->start);
+        
         if ($property_datetime > $current_datetime && $this->start != false) {
           $datetime = new \DateTime(str_replace(array("+02:00", "+01:00"), "", $this->start));
           $return = date_i18n(get_option('date_format'), $datetime->getTimestamp());
+        } else if ($this->start == false || $this->start == ''){
+          $return = __('On Request', 'casasync');  
         } else {
           $return = $this->conversion->casasync_convert_availabilityKeyToLabel('immediately');
         }
@@ -455,7 +551,7 @@
                       $i++;
                       $return .= '<div class="' . ($i == 1 ? 'active' : '') . ' item" data-slide-number="'.($i-1) .'">';
                         $thumbimgL = wp_get_attachment_image( $attachment->ID, 'full', true );
-                        $return .= '<a href="'. wp_get_attachment_url( $attachment->ID ) .'" data-featherlight="image">'. $thumbimgL .'</a>';
+                        $return .= '<a class="property-image-gallery" rel="casasync-single-gallery" href="'. wp_get_attachment_url( $attachment->ID ) .'">'. $thumbimgL .'</a>';
                         $return .= '<div id="carousel-text" class="carousel-caption" >';
                         if($attachment->post_excerpt != '') {
                           $return .= '<p>'. $attachment->post_excerpt .'</p>';
@@ -600,8 +696,10 @@
 
         $presentable_numvals = array(
           'casasync_single_show_number_of_rooms',
-          'casasync_single_show_surface_usable',
-          'casasync_single_show_surface_living',
+          #'casasync_single_show_surface_usable',
+          #'casasync_single_show_surface_living',
+          'casasync_single_show_area_sia_nf',
+          'casasync_single_show_area_bwf',
           'casasync_single_show_surface_property',
           'casasync_single_show_floor',
           'casasync_single_show_number_of_floors',
@@ -635,15 +733,15 @@
                   $content .= $br;
                 }
                 break;
-              case 'casasync_single_show_surface_usable':
-                if ($this->getNumval('surface_usable')){
-                  $content .= __('Surface usable:', 'casasync') . ' ' . $this->getNumval('surface_usable');
+              case 'casasync_single_show_area_sia_nf':
+                if ($this->getNumval('area_sia_nf')){
+                  $content .= __('Surface usable:', 'casasync') . ' ' . $this->getNumval('area_sia_nf');
                   $content .= $br;
                 }
                 break;
-              case 'casasync_single_show_surface_living':
-                if ($this->getNumval('surface_living')){
-                  $content .= __('Living space:', 'casasync') . ' ' . $this->getNumval('surface_living');
+              case 'casasync_single_show_area_bwf':
+                if ($this->getNumval('area_bwf')){
+                  $content .= __('Living space:', 'casasync') . ' ' . $this->getNumval('area_bwf');
                   $content .= $br;
                 }
                 break;
@@ -679,7 +777,7 @@
                 break;
               case 'casasync_single_show_availability':
                 if ($this->getAvailabilityLabel()) {
-                  $content .= __('Available:','casasync') . ' ' . $br . $this->getAvailabilityLabel();
+                  $content .= __('Available from:','casasync') . ' ' . $br . $this->getAvailabilityLabel();
                   $content .= $br;
                 }
               break;
@@ -727,6 +825,21 @@
       return $content;
     }
 
+    public function formatStartdate($str){
+      if (!$str) {
+        return __('On Request' ,'casasync');
+      }
+      $datetime = new \DateTime($str);
+      if (!$datetime) {
+        return __('On Request' ,'casasync');
+      }
+      if ($datetime < new \DateTime('now')) {
+        return __('Immediate' ,'casasync');
+      }
+      return $datetime->format('d.m.Y');
+
+    } 
+
     public function getSpecificationsTable(){
       $content = '<h3>' . __('Offer','casasync'). '</h3>';
       $content .= '<table class="table">';
@@ -773,9 +886,9 @@
       }
       if ($this->the_availability) {
         $content .= '<tr>'
-              .'<td class="width-25">' . __('Availability','casasync') . '</td>'
+              .'<td class="width-25">' . __('Available from:','casasync') . '</td>'
             .'<td class="width-75">';
-            $content .= $this->the_availability;
+            $content .= $this->formatStartdate($this->start);
             $content .= '</td>'
             .'</tr>';
       }
@@ -799,7 +912,7 @@
           .'</tr>';
         }
 
-        $all_numvals = $this->getAllNumvals(array('surface_usable', 'surface_living', 'surface_property'));
+        $all_numvals = $this->getAllNumvals(array('area_sia_gf', 'area_sia_nf', 'area_bwf', 'area_nwf', 'surface_property'));
 
         foreach ($all_numvals as $numval) {
           $content .= '<tr>
@@ -846,8 +959,10 @@
         'casasync_archive_show_street_and_number',
         'casasync_archive_show_location',
         'casasync_archive_show_number_of_rooms',
-        'casasync_archive_show_surface_usable',
-        'casasync_archive_show_surface_living',
+        #'casasync_archive_show_surface_usable',
+        #'casasync_archive_show_surface_living',
+        'casasync_archive_show_area_sia_nf',
+        'casasync_archive_show_area_bwf',
         'casasync_archive_show_surface_property',
         'casasync_archive_show_floor',
         'casasync_archive_show_number_of_floors',
@@ -904,19 +1019,19 @@
                 .'</tr>';
               }
               break;
-            case 'casasync_archive_show_surface_usable':
-              if ($this->getNumval('surface_usable')){
+            case 'casasync_archive_show_area_sia_nf':
+              if ($this->getNumval('area_sia_nf')){
                 $return .= '<tr>'
                   .'<th>' .  __('Surface usable', 'casasync') . '</th>'
-                  .'<td>' . $this->getNumval('surface_usable') . '</td>'
+                  .'<td>' . $this->getNumval('area_sia_nf') . '</td>'
                 .'</tr>';
               }
               break;
-            case 'casasync_archive_show_surface_living':
-              if ($this->getNumval('surface_living')){
+            case 'casasync_archive_show_area_bwf':
+              if ($this->getNumval('area_bwf')){
                 $return .= '<tr>'
                   .'<th>' . __('Living space', 'casasync') . '</th>'
-                  .'<td>' . $this->getNumval('surface_living', true) . '</td>'
+                  .'<td>' . $this->getNumval('area_bwf', true) . '</td>'
                 .'</tr>';
               }
               break;
@@ -1069,6 +1184,9 @@
     }
 
     public function getContactform(){
+      if ($this->availability == 'reference') {
+        return false;
+      }
       $emails = $this->getContactEmails();
       $i = 0;
       foreach ($emails as $k => $v) {
@@ -1519,8 +1637,12 @@
         case 'number_of_rooms':
           return (isset($this->numvals[$name]) ? ($this->numvals[$name]['value']) : false);
           break;
-        case 'surface_usable':
-        case 'surface_living':
+        #case 'surface_usable':
+        #case 'surface_living':
+        case 'area_bwf':
+        case 'area_nwf':
+        case 'area_sia_gf':
+        case 'area_sia_nf':
         case 'surface_property':
           if (isset($this->numvals[$name])) {
             preg_match_all('/^(\d+)(\w+)$/', $this->numvals[$name]['value'], $matches);
@@ -1581,7 +1703,7 @@
       return $html;
     }
 
-    public function getAllDocuments() {
+    public function getAllDocuments($icon = false) {
       $html = false;
       $count = 1;
       $args = array(
@@ -1590,12 +1712,12 @@
       );
       $attachments = get_children( $args );
       if($attachments) {
-        $html .= '<ul class="casasync-unstyled">';
+        $html .= '<ul class="casasync-unstyled casasync-documents">';
         foreach ( (array) $attachments as $attachment_id => $attachment ) {
           if(strpos($attachment->post_mime_type, 'image') === false ) {
             $url = wp_get_attachment_url( $attachment_id );
             $title = (is_numeric($attachment->post_title)) ? (__('Document', 'casasync') . ' ' . $count) : ($attachment->post_title);
-            $html .= '<li><a href="' . $url . '" title="' . $title . '" target="_blank" >' . $title . '</a></li>';
+            $html .= '<li>' . $icon . '<a href="' . $url . '" title="' . $title . '" target="_blank" >' . $title . '</a></li>';
             $count++;
           }
         }

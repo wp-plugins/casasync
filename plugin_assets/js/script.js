@@ -46,7 +46,7 @@ jQuery(document).ready(function($) {
         }
     }
 
-    if ($('.casasync-basic-box').length){
+    if ($('.casasync-basic-box:visible').length){
         if (window.casasyncOptionParams && window.casasyncOptionParams.load_css == 'bootstrapv3') {
             var selector = '.casasync-basic-box';
             $(selector).equalHeightColumns({
